@@ -1,0 +1,40 @@
+# prompt: connect with drive
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+# prompt: down;oad into drive
+import kagglehub
+# # Download latest version
+path = kagglehub.dataset_download("elemento/nyc-yellow-taxi-trip-data")
+# print("Path to dataset files:", path)
+
+import shutil
+
+# Assuming 'path' variable holds the downloaded dataset path
+destination_path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'  # Change this to your desired location in Google Drive
+
+try:
+  shutil.copytree(path, destination_path)
+  print(f"Dataset copied to {destination_path}")
+except FileExistsError:
+  print(f"Destination path {destination_path} already exists. Skipping copy.")
+except Exception as e:
+  print(f"Error copying dataset: {e}")
+
+
+import pandas as pd
+import os
+
+path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
+
+for filename in os.listdir(path):
+    if filename.endswith('.csv'):
+        filepath = os.path.join(path, filename)
+        try:
+            df = pd.read_csv(filepath, nrows=5)  # Read only the first 5 rows for efficiency
+            print(f"\n{'-'*10} {filename} {'-'*10}\n")
+            print(df.to_string(index=False))  # Print the DataFrame without index for better readability
+        except Exception as e:
+            print(f"Error reading {filename}: {e}")
+
