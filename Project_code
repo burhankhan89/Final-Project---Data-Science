@@ -12,7 +12,7 @@ path = kagglehub.dataset_download("elemento/nyc-yellow-taxi-trip-data")
 import shutil
 
 # Assuming 'path' variable holds the downloaded dataset path
-destination_path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'  # Change this to your desired location in Google Drive
+destination_path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data' 
 
 try:
   shutil.copytree(path, destination_path)
@@ -21,7 +21,6 @@ except FileExistsError:
   print(f"Destination path {destination_path} already exists. Skipping copy.")
 except Exception as e:
   print(f"Error copying dataset: {e}")
-
 
 import pandas as pd
 import os
@@ -38,3 +37,224 @@ for filename in os.listdir(path):
         except Exception as e:
             print(f"Error reading {filename}: {e}")
 
+import pandas as pd
+import os
+from tabulate import tabulate
+
+path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
+
+for filename in os.listdir(path):
+    if filename.endswith('.csv'):
+        filepath = os.path.join(path, filename)
+        try:
+            df = pd.read_csv(filepath, nrows=5)
+            print(f"\n{'='*10} {filename} {'='*10}\n")
+            print(tabulate(df, headers='keys', tablefmt='grid'))
+        except Exception as e:
+            print(f"Error reading {filename}: {e}")
+
+import pandas as pd
+import os
+from tabulate import tabulate  # Install it using: pip install tabulate
+
+path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
+
+for filename in os.listdir(path):
+    if filename.endswith('.csv'):
+        filepath = os.path.join(path, filename)
+        try:
+            df = pd.read_csv(filepath)  # Read the entire CSV file
+
+            print(f"\n{'='*15} {filename} {'='*15}\n")
+
+            # Print DataFrame Info
+            print("\n--- DataFrame Info ---\n")
+            df.info()
+
+            # Print DataFrame Description
+            print("\n--- Statistical Summary (.describe()) ---\n")
+            print(tabulate(df.describe(), headers='keys', tablefmt='grid'))
+
+        except Exception as e:
+            print(f"Error reading {filename}: {e}")
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import missingno as msno
+
+# 1. Load the dataset – update the file path as needed
+file_path = "/content/drive/MyDrive/nyc-yellow-taxi-trip-data/yellow_tripdata_2015-01.csv"
+df = pd.read_csv(file_path)
+
+# 2. Data Overview
+print("=== Dataset Info ===")
+df.info()
+
+print("\n=== Missing Values Per Column ===")
+print(df.isnull().sum())
+
+print("\n=== First 5 Rows of the Dataset ===")
+print(df.head())
+
+# 3. Descriptive Statistics
+print("\n=== Descriptive Statistics (Numeric Features) ===")
+print(df.describe())
+
+print("\n=== Descriptive Statistics (Categorical Features) ===")
+print(df.describe(include=['O']))
+
+# 4. Handling Missing Values
+# Option: Drop rows with missing values (or you can fill them as needed)
+df_clean = df.dropna()
+print("\nAfter dropping missing values, dataset shape:", df_clean.shape)
+
+# Visualize missing data pattern (optional)
+plt.figure(figsize=(10, 4))
+msno.bar(df)
+plt.title("Missing Values in Original Data")
+plt.show()
+
+# 5. Data Distribution Visualizations
+
+# Histogram (with KDE) for trip distance
+plt.figure(figsize=(8, 5))
+sns.histplot(df_clean['trip_distance'], bins=50, kde=True, color='skyblue')
+plt.title("Trip Distance Distribution")
+plt.xlabel("Trip Distance (miles)")
+plt.ylabel("Frequency")
+plt.show()
+
+# Boxplot for fare amount
+plt.figure(figsize=(8, 5))
+sns.boxplot(x=df_clean['fare_amount'], color='lightgreen')
+plt.title("Fare Amount Distribution")
+plt.xlabel("Fare Amount ($)")
+plt.show()
+
+# KDE plot for tip amount
+plt.figure(figsize=(8, 5))
+sns.kdeplot(df_clean['tip_amount'], shade=True, color='salmon')
+plt.title("Tip Amount Density")
+plt.xlabel("Tip Amount ($)")
+plt.ylabel("Density")
+plt.show()
+
+# 6. Feature Correlations
+# Select only numeric columns for correlation analysis
+numeric_df = df_clean.select_dtypes(include=['number'])
+plt.figure(figsize=(10, 6))
+sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', linewidths=0.5)
+plt.title("Feature Correlation Heatmap")
+plt.show()
+
+# 7. Geospatial Analysis – Plot pickup and dropoff locations
+
+# Plot pickup locations
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=df_clean['pickup_longitude'], y=df_clean['pickup_latitude'], alpha=0.5)
+plt.title("Pickup Locations")
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.show()
+
+# Plot dropoff locations
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=df_clean['dropoff_longitude'], y=df_clean['dropoff_latitude'], alpha=0.5)
+plt.title("Dropoff Locations")
+plt.xlabel("Longitude")
+plt.ylabel("Latitude")
+plt.show()
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from datetime import datetime
+
+# Load Dataset
+file_path = "/content/drive/MyDrive/nyc-yellow-taxi-trip-data/yellow_tripdata_2015-01.csv"
+df = pd.read_csv(file_path)
+
+### Step 1: Data Cleaning & Preprocessing ###
+
+# 1. Handling Missing Values
+df.dropna(inplace=True)  # Remove rows with missing values
+print("After dropping missing values, dataset shape:", df.shape)
+
+# 2. Convert Datetime Columns to Proper Format
+df['tpep_pickup_datetime'] = pd.to_datetime(df['tpep_pickup_datetime'])
+df['tpep_dropoff_datetime'] = pd.to_datetime(df['tpep_dropoff_datetime'])
+
+# 3. Removing Duplicates
+df.drop_duplicates(inplace=True)
+print("After removing duplicates, dataset shape:", df.shape)
+
+# 4. Removing Outliers (Fare amount and Trip distance)
+df = df[(df['fare_amount'] > 0) & (df['fare_amount'] < 200)]  # Remove unrealistic fares
+df = df[(df['trip_distance'] > 0) & (df['trip_distance'] < 100)]  # Remove long-distance errors
+
+print("After cleaning outliers, dataset shape:", df.shape)
+
+### Step 2: Feature Engineering ###
+
+# 1. Extract Time-Based Features
+df['pickup_hour'] = df['tpep_pickup_datetime'].dt.hour
+df['pickup_day'] = df['tpep_pickup_datetime'].dt.day
+df['pickup_weekday'] = df['tpep_pickup_datetime'].dt.weekday  # Monday=0, Sunday=6
+df['pickup_month'] = df['tpep_pickup_datetime'].dt.month
+
+# 2. Trip Duration (in minutes)
+df['trip_duration'] = (df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']).dt.total_seconds() / 60
+
+# 3. Trip Speed (miles per hour)
+df['trip_speed'] = df['trip_distance'] / (df['trip_duration'] / 60)  # distance / (time in hours)
+df = df[df['trip_speed'] < 100]  # Remove unrealistic speeds
+
+# 4. Categorize Rush Hour vs Non-Rush Hour
+df['rush_hour'] = df['pickup_hour'].apply(lambda x: 1 if (7 <= x <= 9 or 16 <= x <= 19) else 0)
+
+# 5. Passenger Count Analysis (Group trips by number of passengers)
+passenger_trip_count = df['passenger_count'].value_counts()
+
+# 6. Create Day vs Night Feature
+df['is_night_trip'] = df['pickup_hour'].apply(lambda x: 1 if (x < 6 or x > 21) else 0)
+
+# 7. Categorize Payment Types
+payment_mapping = {1: 'Credit Card', 2: 'Cash', 3: 'No Charge', 4: 'Dispute', 5: 'Unknown', 6: 'Voided Trip'}
+df['payment_type_label'] = df['payment_type'].map(payment_mapping)
+
+### Step 3: Visualizing Feature Engineering Results ###
+
+# 1. Trip Frequency by Hour
+plt.figure(figsize=(10,5))
+sns.countplot(x=df['pickup_hour'], palette='viridis')
+plt.title("Trip Frequency by Hour")
+plt.xlabel("Hour of the Day")
+plt.ylabel("Number of Trips")
+plt.show()
+
+# 2. Average Fare Amount by Day of the Week
+plt.figure(figsize=(10,5))
+sns.barplot(x=df['pickup_weekday'], y=df['fare_amount'], palette='coolwarm', ci=None)
+plt.title("Average Fare Amount by Day of the Week")
+plt.xlabel("Day of the Week (0=Monday, 6=Sunday)")
+plt.ylabel("Average Fare ($)")
+plt.show()
+
+# 3. Rush Hour vs Non-Rush Hour Trips
+plt.figure(figsize=(6, 4))
+sns.countplot(x=df['rush_hour'], palette=['blue', 'red'])
+plt.xticks(ticks=[0, 1], labels=['Non-Rush Hour', 'Rush Hour'])
+plt.title("Number of Trips During Rush Hour vs Non-Rush Hour")
+plt.show()
+
+# 4. Payment Type Distribution
+plt.figure(figsize=(8, 5))
+sns.countplot(x=df['payment_type_label'], palette='Set2')
+plt.xticks(rotation=45)
+plt.title("Distribution of Payment Methods")
+plt.show()
+
+print("Feature Engineering and Preprocessing Completed Successfully!")
