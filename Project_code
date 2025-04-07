@@ -1,260 +1,170 @@
-# prompt: connect with drive
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, precision_recall_fscore_support, confusion_matrix
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingClassifier
+from sklearn.impute import SimpleImputer
+from statsmodels.tsa.arima.model import ARIMA
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
+from tabulate import tabulate
+import warnings
+warnings.filterwarnings('ignore')
 
 from google.colab import drive
 drive.mount('/content/drive')
 
-# prompt: down;oad into drive
-import kagglehub
-# # Download latest version
-path = kagglehub.dataset_download("elemento/nyc-yellow-taxi-trip-data")
-# print("Path to dataset files:", path)
 
-import shutil
+# Step 1: Load and Display the Data
+file_path = '/content/drive/MyDrive/Bengaluru_Ola_Booking_Data.csv'
+df = pd.read_csv(file_path, parse_dates=['Date'])
+print("Initial Data Preview:")
+print(tabulate(df.head(), headers='keys', tablefmt='pretty'))
 
-# Assuming 'path' variable holds the downloaded dataset path
-destination_path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data' 
 
-try:
-  shutil.copytree(path, destination_path)
-  print(f"Dataset copied to {destination_path}")
-except FileExistsError:
-  print(f"Destination path {destination_path} already exists. Skipping copy.")
-except Exception as e:
-  print(f"Error copying dataset: {e}")
+# Step 2: Check Data Information
+print("\nData Information:")
+info = df.info()
+print(info)
 
-import pandas as pd
-import os
 
-path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
+# Step 3: Enhanced Data Cleaning
 
-for filename in os.listdir(path):
-    if filename.endswith('.csv'):
-        filepath = os.path.join(path, filename)
-        try:
-            df = pd.read_csv(filepath, nrows=5)  # Read only the first 5 rows for efficiency
-            print(f"\n{'-'*10} {filename} {'-'*10}\n")
-            print(df.to_string(index=False))  # Print the DataFrame without index for better readability
-        except Exception as e:
-            print(f"Error reading {filename}: {e}")
-
-import pandas as pd
-import os
-from tabulate import tabulate
-
-path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
-
-for filename in os.listdir(path):
-    if filename.endswith('.csv'):
-        filepath = os.path.join(path, filename)
-        try:
-            df = pd.read_csv(filepath, nrows=5)
-            print(f"\n{'='*10} {filename} {'='*10}\n")
-            print(tabulate(df, headers='keys', tablefmt='grid'))
-        except Exception as e:
-            print(f"Error reading {filename}: {e}")
-
-import pandas as pd
-import os
-from tabulate import tabulate  # Install it using: pip install tabulate
-
-path = '/content/drive/MyDrive/nyc-yellow-taxi-trip-data'
-
-for filename in os.listdir(path):
-    if filename.endswith('.csv'):
-        filepath = os.path.join(path, filename)
-        try:
-            df = pd.read_csv(filepath)  # Read the entire CSV file
-
-            print(f"\n{'='*15} {filename} {'='*15}\n")
-
-            # Print DataFrame Info
-            print("\n--- DataFrame Info ---\n")
-            df.info()
-
-            # Print DataFrame Description
-            print("\n--- Statistical Summary (.describe()) ---\n")
-            print(tabulate(df.describe(), headers='keys', tablefmt='grid'))
-
-        except Exception as e:
-            print(f"Error reading {filename}: {e}")
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-import missingno as msno
-
-# 1. Load the dataset – update the file path as needed
-file_path = "/content/drive/MyDrive/nyc-yellow-taxi-trip-data/yellow_tripdata_2015-01.csv"
-df = pd.read_csv(file_path)
-
-# 2. Data Overview
-print("=== Dataset Info ===")
-df.info()
-
-print("\n=== Missing Values Per Column ===")
-print(df.isnull().sum())
-
-print("\n=== First 5 Rows of the Dataset ===")
-print(df.head())
-
-# 3. Descriptive Statistics
-print("\n=== Descriptive Statistics (Numeric Features) ===")
-print(df.describe())
-
-print("\n=== Descriptive Statistics (Categorical Features) ===")
-print(df.describe(include=['O']))
-
-# 4. Handling Missing Values
-# Option: Drop rows with missing values (or you can fill them as needed)
-df_clean = df.dropna()
-print("\nAfter dropping missing values, dataset shape:", df_clean.shape)
-
-# Visualize missing data pattern (optional)
-plt.figure(figsize=(10, 4))
-msno.bar(df)
-plt.title("Missing Values in Original Data")
-plt.show()
-
-# 5. Data Distribution Visualizations
-
-# Histogram (with KDE) for trip distance
-plt.figure(figsize=(8, 5))
-sns.histplot(df_clean['trip_distance'], bins=50, kde=True, color='skyblue')
-plt.title("Trip Distance Distribution")
-plt.xlabel("Trip Distance (miles)")
-plt.ylabel("Frequency")
-plt.show()
-
-# Boxplot for fare amount
-plt.figure(figsize=(8, 5))
-sns.boxplot(x=df_clean['fare_amount'], color='lightgreen')
-plt.title("Fare Amount Distribution")
-plt.xlabel("Fare Amount ($)")
-plt.show()
-
-# KDE plot for tip amount
-plt.figure(figsize=(8, 5))
-sns.kdeplot(df_clean['tip_amount'], shade=True, color='salmon')
-plt.title("Tip Amount Density")
-plt.xlabel("Tip Amount ($)")
-plt.ylabel("Density")
-plt.show()
-
-# 6. Feature Correlations
-# Select only numeric columns for correlation analysis
-numeric_df = df_clean.select_dtypes(include=['number'])
-plt.figure(figsize=(10, 6))
-sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', linewidths=0.5)
-plt.title("Feature Correlation Heatmap")
-plt.show()
-
-# 7. Geospatial Analysis – Plot pickup and dropoff locations
-
-# Plot pickup locations
-plt.figure(figsize=(10, 6))
-sns.scatterplot(x=df_clean['pickup_longitude'], y=df_clean['pickup_latitude'], alpha=0.5)
-plt.title("Pickup Locations")
-plt.xlabel("Longitude")
-plt.ylabel("Latitude")
-plt.show()
-
-# Plot dropoff locations
-plt.figure(figsize=(10, 6))
-sns.scatterplot(x=df_clean['dropoff_longitude'], y=df_clean['dropoff_latitude'], alpha=0.5)
-plt.title("Dropoff Locations")
-plt.xlabel("Longitude")
-plt.ylabel("Latitude")
-plt.show()
-
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
-
-# Load Dataset
-file_path = "/content/drive/MyDrive/nyc-yellow-taxi-trip-data/yellow_tripdata_2015-01.csv"
-df = pd.read_csv(file_path)
-
-### Step 1: Data Cleaning & Preprocessing ###
-
-# 1. Handling Missing Values
-df.dropna(inplace=True)  # Remove rows with missing values
-print("After dropping missing values, dataset shape:", df.shape)
-
-# 2. Convert Datetime Columns to Proper Format
-df['tpep_pickup_datetime'] = pd.to_datetime(df['tpep_pickup_datetime'])
-df['tpep_dropoff_datetime'] = pd.to_datetime(df['tpep_dropoff_datetime'])
-
-# 3. Removing Duplicates
 df.drop_duplicates(inplace=True)
-print("After removing duplicates, dataset shape:", df.shape)
+print(f"\nDuplicates removed. New shape: {df.shape}")
 
-# 4. Removing Outliers (Fare amount and Trip distance)
-df = df[(df['fare_amount'] > 0) & (df['fare_amount'] < 200)]  # Remove unrealistic fares
-df = df[(df['trip_distance'] > 0) & (df['trip_distance'] < 100)]  # Remove long-distance errors
 
-print("After cleaning outliers, dataset shape:", df.shape)
+# Check for missing values
+missing_values = df.isnull().sum()
+print("\nMissing Values:")
+print(tabulate(missing_values.items(), headers=["Column", "Missing Values"], tablefmt="pretty"))
 
-### Step 2: Feature Engineering ###
 
-# 1. Extract Time-Based Features
-df['pickup_hour'] = df['tpep_pickup_datetime'].dt.hour
-df['pickup_day'] = df['tpep_pickup_datetime'].dt.day
-df['pickup_weekday'] = df['tpep_pickup_datetime'].dt.weekday  # Monday=0, Sunday=6
-df['pickup_month'] = df['tpep_pickup_datetime'].dt.month
+# Fill missing values with more appropriate methods based on column type
+for col in df.columns:
+    if df[col].dtype == 'object':
+        df[col].fillna(df[col].mode()[0], inplace=True)
+    else:
+        df[col].fillna(df[col].median(), inplace=True)
 
-# 2. Trip Duration (in minutes)
-df['trip_duration'] = (df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']).dt.total_seconds() / 60
+print("\nChecking for remaining NaN values...")
+print(df.isnull().sum().sum(), "total NaN values remaining")
 
-# 3. Trip Speed (miles per hour)
-df['trip_speed'] = df['trip_distance'] / (df['trip_duration'] / 60)  # distance / (time in hours)
-df = df[df['trip_speed'] < 100]  # Remove unrealistic speeds
 
-# 4. Categorize Rush Hour vs Non-Rush Hour
-df['rush_hour'] = df['pickup_hour'].apply(lambda x: 1 if (7 <= x <= 9 or 16 <= x <= 19) else 0)
 
-# 5. Passenger Count Analysis (Group trips by number of passengers)
-passenger_trip_count = df['passenger_count'].value_counts()
+# Step 4: Feature Engineering
+print("\nPerforming Feature Engineering...")
 
-# 6. Create Day vs Night Feature
-df['is_night_trip'] = df['pickup_hour'].apply(lambda x: 1 if (x < 6 or x > 21) else 0)
+df['DayOfWeek'] = df['Date'].dt.dayofweek
+df['Weekend'] = df['DayOfWeek'].apply(lambda x: 1 if x >= 5 else 0)
+df['Month'] = df['Date'].dt.month
+df['Day'] = df['Date'].dt.day
+df['Hour'] = pd.to_datetime(df['Pickup Time']).dt.hour if 'Pickup Time' in df.columns else 0
 
-# 7. Categorize Payment Types
-payment_mapping = {1: 'Credit Card', 2: 'Cash', 3: 'No Charge', 4: 'Dispute', 5: 'Unknown', 6: 'Voided Trip'}
-df['payment_type_label'] = df['payment_type'].map(payment_mapping)
+if 'Booking Status' in df.columns:
 
-### Step 3: Visualizing Feature Engineering Results ###
+    df['Churn'] = ((df['Booking Status'] == 'Cancelled by Customer') |
+                   (df['Booking Status'] == 'Cancelled by Driver') |
+                   (df['Booking Status'] == 'Incomplete')).astype(int)
 
-# 1. Trip Frequency by Hour
-plt.figure(figsize=(10,5))
-sns.countplot(x=df['pickup_hour'], palette='viridis')
-plt.title("Trip Frequency by Hour")
-plt.xlabel("Hour of the Day")
-plt.ylabel("Number of Trips")
+    plt.figure(figsize=(10,5))
+    sns.countplot(x='Churn', data=df)
+    plt.title('Churn Distribution')
+    plt.ylabel('Count')
+    plt.xticks([0, 1], ['Retained', 'Churned'])
+    plt.show()
+
+    status_mapping = {
+        'Completed': 0,
+        'Cancelled by Customer': 1,
+        'Cancelled by Driver': 2,
+        'Incomplete': 3
+    }
+
+    df['BookingStatusCategory'] = df['Booking Status'].map(
+        lambda x: status_mapping.get(x, 4) if pd.notnull(x) else 4
+    )
+else:
+    df['Churn'] = 0
+    print("'Booking Status' column not found. 'Churn' set to 0.")
+
+if 'Customer ID' in df.columns:
+
+    customer_metrics = df.groupby('Customer ID').agg({
+        'Churn': ['mean', 'sum', 'count'],
+        'Date': ['min', 'max']
+    })
+
+    customer_metrics.columns = ['ChurnRate', 'TotalChurns', 'TotalBookings', 'FirstBooking', 'LastBooking']
+    customer_metrics['CustomerLifetime'] = (customer_metrics['LastBooking'] - customer_metrics['FirstBooking']).dt.days
+    customer_metrics['BookingFrequency'] = customer_metrics['TotalBookings'] / np.maximum(customer_metrics['CustomerLifetime'], 1)
+
+    df = df.merge(customer_metrics, left_on='Customer ID', right_index=True, how='left')
+
+
+
+# Step 5: Exploratory Data Analysis
+print("\nPerforming Exploratory Data Analysis...")
+
+plt.figure(figsize=(12,5))
+churn_by_day = df.groupby('DayOfWeek')['Churn'].mean()
+sns.barplot(x=churn_by_day.index, y=churn_by_day.values)
+plt.title('Churn Rate by Day of Week')
+plt.xlabel('Day of Week (0=Monday, 6=Sunday)')
+plt.ylabel('Churn Rate')
 plt.show()
 
-# 2. Average Fare Amount by Day of the Week
-plt.figure(figsize=(10,5))
-sns.barplot(x=df['pickup_weekday'], y=df['fare_amount'], palette='coolwarm', ci=None)
-plt.title("Average Fare Amount by Day of the Week")
-plt.xlabel("Day of the Week (0=Monday, 6=Sunday)")
-plt.ylabel("Average Fare ($)")
+if 'Pickup Lat' in df.columns and 'Pickup Long' in df.columns:
+    plt.figure(figsize=(12,10))
+    plt.scatter(df['Pickup Long'], df['Pickup Lat'], c=df['Churn'], cmap='coolwarm', alpha=0.6)
+    plt.title('Churn by Pickup Location')
+    plt.xlabel('Longitude')
+    plt.ylabel('Latitude')
+    plt.colorbar(label='Churn')
+    plt.show()
+
+df_numeric = df.select_dtypes(include=[np.number])
+correlation_matrix = df_numeric.corr()
+plt.figure(figsize=(14,12))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
+plt.title('Feature Correlation Matrix')
+plt.tight_layout()
 plt.show()
 
-# 3. Rush Hour vs Non-Rush Hour Trips
-plt.figure(figsize=(6, 4))
-sns.countplot(x=df['rush_hour'], palette=['blue', 'red'])
-plt.xticks(ticks=[0, 1], labels=['Non-Rush Hour', 'Rush Hour'])
-plt.title("Number of Trips During Rush Hour vs Non-Rush Hour")
-plt.show()
 
-# 4. Payment Type Distribution
-plt.figure(figsize=(8, 5))
-sns.countplot(x=df['payment_type_label'], palette='Set2')
-plt.xticks(rotation=45)
-plt.title("Distribution of Payment Methods")
-plt.show()
 
-print("Feature Engineering and Preprocessing Completed Successfully!")
+# Step 6: Time Series Analysis - Daily churn rate
+if 'Date' in df.columns:
+    daily_churn = df.groupby('Date')['Churn'].mean().reset_index()
+    daily_churn.set_index('Date', inplace=True)
+    daily_churn = daily_churn.resample('D').mean().fillna(method='ffill')
+
+    daily_churn['day_of_week'] = daily_churn.index.dayofweek
+    daily_churn['month'] = daily_churn.index.month
+    daily_churn['trend'] = np.arange(len(daily_churn))
+
+    plt.figure(figsize=(14,6))
+    plt.plot(daily_churn.index, daily_churn['Churn'], marker='o', linestyle='-', markersize=4)
+    plt.title('Daily Churn Rate Over Time')
+    plt.xlabel('Date')
+    plt.ylabel('Churn Rate')
+    plt.grid(True, alpha=0.3)
+
+    for window in [7, 14, 30]:
+        daily_churn[f'MA_{window}'] = daily_churn['Churn'].rolling(window=window).mean()
+        plt.plot(daily_churn.index, daily_churn[f'MA_{window}'],
+                 label=f'{window}-day Moving Average')
+
+    plt.legend()
+    plt.show()
+else:
+    daily_churn = pd.DataFrame()
+    print("'Date' column not found. Cannot compute daily churn.")
