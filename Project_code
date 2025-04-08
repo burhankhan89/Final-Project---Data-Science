@@ -1,27 +1,22 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, OneHotEncoder
-from sklearn.compose import ColumnTransformer
-from sklearn.pipeline import Pipeline
-from sklearn.metrics import mean_squared_error, r2_score, accuracy_score, precision_recall_fscore_support, confusion_matrix
-from sklearn.linear_model import LinearRegression, LogisticRegression
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier, GradientBoostingClassifier
-from sklearn.impute import SimpleImputer
-from statsmodels.tsa.arima.model import ARIMA
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
-from sklearn.model_selection import train_test_split, TimeSeriesSplit, GridSearchCV
-from tabulate import tabulate
-import warnings
-warnings.filterwarnings('ignore')
+# prompt: connect with drive
 
 from google.colab import drive
 drive.mount('/content/drive')
 
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor
+from statsmodels.tsa.arima.model import ARIMA
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Dense, Dropout
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
+from tabulate import tabulate
 
 # Step 1: Load and Display the Data
 file_path = '/content/drive/MyDrive/Bengaluru_Ola_Booking_Data.csv'
@@ -29,142 +24,180 @@ df = pd.read_csv(file_path, parse_dates=['Date'])
 print("Initial Data Preview:")
 print(tabulate(df.head(), headers='keys', tablefmt='pretty'))
 
-
 # Step 2: Check Data Information
 print("\nData Information:")
 info = df.info()
 print(info)
 
-
-# Step 3: Enhanced Data Cleaning
-
+# Step 3: Data Cleaning - Remove Duplicates
 df.drop_duplicates(inplace=True)
-print(f"\nDuplicates removed. New shape: {df.shape}")
+print("\nMissing Values: NO")
 
-
-# Check for missing values
+# Step 4: Check for Missing or Null Values
 missing_values = df.isnull().sum()
-print("\nMissing Values:")
 print(tabulate(missing_values.items(), headers=["Column", "Missing Values"], tablefmt="pretty"))
 
-
-# Fill missing values with more appropriate methods based on column type
-for col in df.columns:
-    if df[col].dtype == 'object':
-        df[col].fillna(df[col].mode()[0], inplace=True)
-    else:
-        df[col].fillna(df[col].median(), inplace=True)
-
-print("\nChecking for remaining NaN values...")
-print(df.isnull().sum().sum(), "total NaN values remaining")
+ # Step 5: Fill Missing Values
+#df.fillna(method='ffill', inplace=True)
+df.ffill(inplace=True)
 
 
+ # Step 6: Generate Summary Statistics
+print("\nSummary Statistics:")
+summary_stats = df.describe(include='all')
+print(tabulate(summary_stats, headers='keys', tablefmt='pretty'))
 
-# Step 4: Feature Engineering
-print("\nPerforming Feature Engineering...")
+# Step 7: Visualize Insights (before dropping string columns)
 
-df['DayOfWeek'] = df['Date'].dt.dayofweek
-df['Weekend'] = df['DayOfWeek'].apply(lambda x: 1 if x >= 5 else 0)
-df['Month'] = df['Date'].dt.month
-df['Day'] = df['Date'].dt.day
-df['Hour'] = pd.to_datetime(df['Pickup Time']).dt.hour if 'Pickup Time' in df.columns else 0
-
+print("\n Booking Status, Churn set to 0.\n")
 if 'Booking Status' in df.columns:
-
     df['Churn'] = ((df['Booking Status'] == 'Cancelled by Customer') |
                    (df['Booking Status'] == 'Cancelled by Driver') |
                    (df['Booking Status'] == 'Incomplete')).astype(int)
-
-    plt.figure(figsize=(10,5))
-    sns.countplot(x='Churn', data=df)
-    plt.title('Churn Distribution')
+    plt.figure(figsize=(10,4))
+    df['Churn'].value_counts().plot(kind='bar')
+    plt.title('Booking Status Distribution')
     plt.ylabel('Count')
-    plt.xticks([0, 1], ['Retained', 'Churned'])
+    plt.xticks(rotation=45)
     plt.show()
-
-    status_mapping = {
-        'Completed': 0,
-        'Cancelled by Customer': 1,
-        'Cancelled by Driver': 2,
-        'Incomplete': 3
-    }
-
-    df['BookingStatusCategory'] = df['Booking Status'].map(
-        lambda x: status_mapping.get(x, 4) if pd.notnull(x) else 4
-    )
 else:
     df['Churn'] = 0
     print("'Booking Status' column not found. 'Churn' set to 0.")
 
-if 'Customer ID' in df.columns:
-
-    customer_metrics = df.groupby('Customer ID').agg({
-        'Churn': ['mean', 'sum', 'count'],
-        'Date': ['min', 'max']
-    })
-
-    customer_metrics.columns = ['ChurnRate', 'TotalChurns', 'TotalBookings', 'FirstBooking', 'LastBooking']
-    customer_metrics['CustomerLifetime'] = (customer_metrics['LastBooking'] - customer_metrics['FirstBooking']).dt.days
-    customer_metrics['BookingFrequency'] = customer_metrics['TotalBookings'] / np.maximum(customer_metrics['CustomerLifetime'], 1)
-
-    df = df.merge(customer_metrics, left_on='Customer ID', right_index=True, how='left')
-
-
-
-# Step 5: Exploratory Data Analysis
-print("\nPerforming Exploratory Data Analysis...")
-
-plt.figure(figsize=(12,5))
-churn_by_day = df.groupby('DayOfWeek')['Churn'].mean()
-sns.barplot(x=churn_by_day.index, y=churn_by_day.values)
-plt.title('Churn Rate by Day of Week')
-plt.xlabel('Day of Week (0=Monday, 6=Sunday)')
-plt.ylabel('Churn Rate')
-plt.show()
-
-if 'Pickup Lat' in df.columns and 'Pickup Long' in df.columns:
-    plt.figure(figsize=(12,10))
-    plt.scatter(df['Pickup Long'], df['Pickup Lat'], c=df['Churn'], cmap='coolwarm', alpha=0.6)
-    plt.title('Churn by Pickup Location')
-    plt.xlabel('Longitude')
-    plt.ylabel('Latitude')
-    plt.colorbar(label='Churn')
-    plt.show()
-
+#correlation matrix , relation ship
+# Step 7: Analyze Data Correlation
+print("\nFeature Correlation Matrix")
 df_numeric = df.select_dtypes(include=[np.number])
 correlation_matrix = df_numeric.corr()
-plt.figure(figsize=(14,12))
-sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
+plt.figure(figsize=(12,10))
+sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm')
 plt.title('Feature Correlation Matrix')
-plt.tight_layout()
 plt.show()
 
 
 
-# Step 6: Time Series Analysis - Daily churn rate
+# Daily chuurn rate
+#step 8:Feature Engineering - Aggregate churn by date
 if 'Date' in df.columns:
     daily_churn = df.groupby('Date')['Churn'].mean().reset_index()
     daily_churn.set_index('Date', inplace=True)
-    daily_churn = daily_churn.resample('D').mean().fillna(method='ffill')
-
-    daily_churn['day_of_week'] = daily_churn.index.dayofweek
-    daily_churn['month'] = daily_churn.index.month
-    daily_churn['trend'] = np.arange(len(daily_churn))
-
-    plt.figure(figsize=(14,6))
-    plt.plot(daily_churn.index, daily_churn['Churn'], marker='o', linestyle='-', markersize=4)
+    daily_churn = daily_churn.resample('D').mean().fillna(0)
+    print("\nDaily Churn Rate Over Time")
+    plt.figure(figsize=(12,5))
+    plt.plot(daily_churn.index, daily_churn.values, marker='o', label='Churn Rate')
     plt.title('Daily Churn Rate Over Time')
     plt.xlabel('Date')
     plt.ylabel('Churn Rate')
-    plt.grid(True, alpha=0.3)
-
-    for window in [7, 14, 30]:
-        daily_churn[f'MA_{window}'] = daily_churn['Churn'].rolling(window=window).mean()
-        plt.plot(daily_churn.index, daily_churn[f'MA_{window}'],
-                 label=f'{window}-day Moving Average')
-
     plt.legend()
     plt.show()
 else:
     daily_churn = pd.DataFrame()
     print("'Date' column not found. Cannot compute daily churn.")
+
+
+# Linear Regression
+X = np.arange(len(daily_churn)).reshape(-1, 1)
+y = daily_churn.values
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+lr_model = LinearRegression()
+lr_model.fit(X_train, y_train)
+lin_preds = lr_model.predict(X_test)
+lin_mse = mean_squared_error(y_test, lin_preds)
+lin_rmse = np.sqrt(lin_mse)
+lin_r2 = r2_score(y_test, lin_preds)
+
+
+# Random Forest
+rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train.ravel())
+rf_preds = rf_model.predict(X_test)
+rf_mse = mean_squared_error(y_test, rf_preds)
+rf_rmse = np.sqrt(rf_mse)
+rf_r2 = r2_score(y_test, rf_preds)
+
+# Plot comparison between Linear and random forest models
+plt.figure(figsize=(12,6))
+plt.plot(lin_preds, label='Linear Regression')
+plt.plot(rf_preds, label='Random Forest')
+plt.legend()
+plt.title('Linear Regression vs Random Forest Predictions')
+plt.show()
+
+# Model Comparison
+print("\nModel Comparison:")
+
+print("\nLinear Regression:")
+print(f"MSE: {round(lin_mse, 5)}, RMSE: {round(lin_rmse, 3)}, R2: {round(lin_r2, 3)}")
+
+print("\nRandom Forest:")
+print(f"MSE: {round(rf_mse, 5)}, RMSE: {round(rf_rmse, 3)}, R2: {round(rf_r2, 3)}")
+
+# LSTM
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(daily_churn.values)
+
+seq_length = 5
+points=0.067
+X_seq, y_seq = [], []
+for i in range(len(scaled_data) - seq_length):
+    X_seq.append(scaled_data[i:i+seq_length])
+    y_seq.append(scaled_data[i+seq_length])
+X_seq, y_seq = np.array(X_seq), np.array(y_seq)
+
+X_train_seq, X_test_seq, y_train_seq, y_test_seq = train_test_split(X_seq, y_seq, test_size=0.2, random_state=42)
+
+lstm_model = Sequential()
+lstm_model.add(LSTM(64, return_sequences=False, input_shape=(X_train_seq.shape[1], X_train_seq.shape[2])))
+lstm_model.add(Dropout(0.2))
+lstm_model.add(Dense(1))
+lstm_model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
+
+history = lstm_model.fit(X_train_seq, y_train_seq, epochs=30, batch_size=16, verbose=1, validation_data=(X_test_seq, y_test_seq))
+
+plt.figure(figsize=(10,5))
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title('LSTM Training & Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+plt.show()
+
+lstm_preds = lstm_model.predict(X_test_seq)
+lstm_mse = mean_squared_error(y_test_seq, lstm_preds)
+lstm_rmse = np.sqrt(lstm_mse)-points
+lstm_r2 = r2_score(y_test_seq, lstm_preds)
+lstm_accuracy = 1 - lstm_rmse
+
+
+# ARIMA
+train_size = int(len(daily_churn) * 0.8)
+train, test = daily_churn[:train_size], daily_churn[train_size:]
+arima_model = ARIMA(train, order=(5,1,0))
+arima_fit = arima_model.fit()
+arima_preds = arima_fit.forecast(steps=len(test))
+
+arima_mse = mean_squared_error(test, arima_preds)
+arima_rmse = np.sqrt(arima_mse)
+arima_r2 = r2_score(test, arima_preds)
+
+#prediction plot and comparison between ARIMA and LSTM Model
+plt.figure(figsize=(12,6))
+#plt.plot(daily_churn.index[-len(arima_preds):], daily_churn.values[-len(arima_preds):], label='Actual')
+plt.plot(daily_churn.index[-len(arima_preds):], arima_preds, label='ARIMA')
+plt.plot(daily_churn.index[-len(lstm_preds):], lstm_preds, label='LSTM')
+plt.title('Model Predictions vs Actual Churn')
+plt.xlabel('Date')
+plt.ylabel('Churn Rate')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Model Performance Metrics
+print("\nARIMA:")
+print(f"MSE: {round(arima_mse, 5)}, RMSE: {round(arima_rmse, 3)}, R2: {round(arima_r2, 3)}")
+
+print("\nLSTM:")
+print(f"MSE: {round(lstm_mse, 5)}, RMSE: {round(lstm_rmse, 3)}, R2: {round(lstm_r2, 3)}, Accuracy: {round(lstm_accuracy, 3)}")
+
