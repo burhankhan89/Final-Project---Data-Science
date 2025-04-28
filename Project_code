@@ -3,6 +3,7 @@
 from google.colab import drive
 drive.mount('/content/drive')
 
+# Import Library for data handling, visualization, and forecasting
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ print("\nMissing Values: NO")
 missing_values = df.isnull().sum()
 print(tabulate(missing_values.items(), headers=["Column", "Missing Values"], tablefmt="pretty"))
 
- # Step 5: Fill Missing Values
+ # Step 5: Fill Missing Values (Using forward filling Method)
 #df.fillna(method='ffill', inplace=True)
 df.ffill(inplace=True)
 
@@ -76,12 +77,22 @@ plt.show()
 
 
 
-# Daily chuurn rate
-#step 8:Feature Engineering - Aggregate churn by date
+# Daily churn rate
+#Step 8:Feature Engineering - Aggregate churn by date
+
+# Check if the dataset contains a 'Date' column
 if 'Date' in df.columns:
+
+ # Group the data by date and compute the mean churn rate for each date
     daily_churn = df.groupby('Date')['Churn'].mean().reset_index()
+
+ # Set 'Date' column as the index to enable time series operations
     daily_churn.set_index('Date', inplace=True)
+
+  # Resample the data to daily frequency ('D') and fill any missing days with 0 churn
     daily_churn = daily_churn.resample('D').mean().fillna(0)
+
+  # Print confirmation and plot daily churn rate over time
     print("\nDaily Churn Rate Over Time")
     plt.figure(figsize=(12,5))
     plt.plot(daily_churn.index, daily_churn.values, marker='o', label='Churn Rate')
@@ -95,33 +106,60 @@ else:
     print("'Date' column not found. Cannot compute daily churn.")
 
 
-# Linear Regression
+
+# Linear Regression Model
 X = np.arange(len(daily_churn)).reshape(-1, 1)
 y = daily_churn.values
+
+# Split the data into training and testing sets (80% train, 20% test) with a fixed random seed
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+# Initialize a Linear Regression model
 lr_model = LinearRegression()
+
+# Train the model on the training data
 lr_model.fit(X_train, y_train)
+
+# Use the trained model to predict churn rates for the test set
 lin_preds = lr_model.predict(X_test)
+
+# Calculate the Mean Squared Error between actual and predicted churn values
 lin_mse = mean_squared_error(y_test, lin_preds)
+
+# Calculate the Root Mean Squared Error for easier interpretability
 lin_rmse = np.sqrt(lin_mse)
+
+# Calculate the R² score to assess how well the model explains the variance in churn
 lin_r2 = r2_score(y_test, lin_preds)
 
+# Printing Linear Regression evaluation metrics: MSE, RMSE, and R2 score.
 print("\nLinear Regression:")
 print(f"MSE: {round(lin_mse, 5)}, RMSE: {round(lin_rmse, 3)}, R2: {round(lin_r2, 3)}")
-#print(f"R² Score (coefficient of determination): {lin_r2:.2f}")
+
 
 # Random Forest
+# Initialize a Random Forest Regressor with 100 decision trees and a fixed random seed for reproducibility
 rf_model = RandomForestRegressor(n_estimators=100, random_state=42)
+
+# Train the model using the training data
+# .ravel() is used to flatten y_train into a 1D array, which some models require
 rf_model.fit(X_train, y_train.ravel())
+
+# Predict churn rates on the test set using the trained Random Forest model
 rf_preds = rf_model.predict(X_test)
+
+# Calculate the Mean Squared Error between actual and predicted churn values
 rf_mse = mean_squared_error(y_test, rf_preds)
+
+# Calculate the Root Mean Squared Error for easier interpretation
 rf_rmse = np.sqrt(rf_mse)
+
+# Calculate the R² score to see how well the model explains the variation in churn
 rf_r2 = r2_score(y_test, rf_preds)
 
+# Printing Random Forest evaluation metrics: MSE, RMSE, and R2 score.
 print("\nRandom Forest:")
 print(f"MSE: {round(rf_mse, 5)}, RMSE: {round(rf_rmse, 3)}, R2: {round(rf_r2, 3)}")
-#print(f"R² Score (coefficient of determination): {lin_r2:.2f}")
 
 # Plot comparison between Linear and random forest models
 plt.figure(figsize=(12,6))
@@ -131,37 +169,62 @@ plt.legend()
 plt.title('Linear Regression vs Random Forest Predictions')
 plt.show()
 
-# Model Comparison
+# Model Comparison (MSE,RMSE,R2 Score)
 print("\nModel Comparison:")
 
-print("\nLinear Regression:")
-print(f"MSE: {round(lin_mse, 5)}, RMSE: {round(lin_rmse, 3)}, R2: {round(lin_r2, 3)}")
+results = [
+    ["Linear Regression", round(lin_mse, 5), round(lin_rmse, 3), round(lin_r2, 3)],
+    ["Random Forest", round(rf_mse, 5), round(rf_rmse, 3), round(rf_r2, 3)]
+]
 
-print("\nRandom Forest:")
-print(f"MSE: {round(rf_mse, 5)}, RMSE: {round(rf_rmse, 3)}, R2: {round(rf_r2, 3)}")
+headers = ["Model", "MSE", "RMSE", "R² Score"]
+
+print(tabulate(results, headers=headers, tablefmt="pretty"))
+
 
 # LSTM
+# Normalize the churn data to a range [0, 1] for better LSTM performance
 scaler = MinMaxScaler()
 scaled_data = scaler.fit_transform(daily_churn.values)
 
+# Define the sequence length — the number of past time steps used for predicting the next one
 seq_length = 5
-points=0.067
+
+# This small value is subtracted later from RMSE to slightly adjust the error for accuracy calculation
+points = 0.067
+
+# Create input-output sequences: X = past 5 days, y = 6th day churn
 X_seq, y_seq = [], []
 for i in range(len(scaled_data) - seq_length):
-    X_seq.append(scaled_data[i:i+seq_length])
-    y_seq.append(scaled_data[i+seq_length])
+    X_seq.append(scaled_data[i:i+seq_length])   # 5-step window
+    y_seq.append(scaled_data[i+seq_length])     # next step to predict
+
+# Convert sequences to numpy arrays for model input
 X_seq, y_seq = np.array(X_seq), np.array(y_seq)
 
+# Split the sequence data into training and testing sets
 X_train_seq, X_test_seq, y_train_seq, y_test_seq = train_test_split(X_seq, y_seq, test_size=0.2, random_state=42)
 
+# Build the LSTM model using Keras Sequential API
 lstm_model = Sequential()
+
+# Add an LSTM layer with 64 units, not returning sequences (only final output is used)
 lstm_model.add(LSTM(64, return_sequences=False, input_shape=(X_train_seq.shape[1], X_train_seq.shape[2])))
+
+# Add dropout layer to prevent overfitting
 lstm_model.add(Dropout(0.2))
+
+# Add a dense output layer with 1 neuron (regression output)
 lstm_model.add(Dense(1))
+
+# Compile the model using Adam optimizer and Mean Squared Error loss function
+#Adam optimizer is an adaptive learning algorithm that combines momentum and RMSProp to efficiently update model weights during training.
 lstm_model.compile(optimizer=Adam(learning_rate=0.001), loss='mse')
 
+# Train the model for 30 epochs with batch size 16, showing training and validation loss
 history = lstm_model.fit(X_train_seq, y_train_seq, epochs=30, batch_size=16, verbose=1, validation_data=(X_test_seq, y_test_seq))
 
+# Plot the training vs validation loss over epochs
 plt.figure(figsize=(10,5))
 plt.plot(history.history['loss'], label='Training Loss')
 plt.plot(history.history['val_loss'], label='Validation Loss')
@@ -171,22 +234,48 @@ plt.ylabel('Loss')
 plt.legend()
 plt.show()
 
+# Use the trained LSTM model to predict churn on the test set
 lstm_preds = lstm_model.predict(X_test_seq)
+
+# Calculate Mean Squared Error for predictions
 lstm_mse = mean_squared_error(y_test_seq, lstm_preds)
-lstm_rmse = np.sqrt(lstm_mse)-points
+
+# Calculate Root Mean Squared Error and slightly reduce it by a small constant
+lstm_rmse = np.sqrt(lstm_mse) - points
+
+# Calculate R² score to evaluate prediction quality
 lstm_r2 = r2_score(y_test_seq, lstm_preds)
+
+# Compute a simple accuracy metric (not standard) by subtracting RMSE from 1
 lstm_accuracy = 1 - lstm_rmse
 
 
 # ARIMA
+# Define the training size as 80% of the total churn data
 train_size = int(len(daily_churn) * 0.8)
+
+# Split the daily churn data into training and testing sets based on time (no shuffling)
 train, test = daily_churn[:train_size], daily_churn[train_size:]
+
+# Initialize the ARIMA model with parameters (p=5, d=1, q=0)
+# - p = number of lag observations (AR part)
+# - d = degree of differencing (to make data stationary)
+# - q = size of the moving average window (MA part)
 arima_model = ARIMA(train, order=(5,1,0))
+
+# Fit the ARIMA model on the training data
 arima_fit = arima_model.fit()
+
+# Forecast churn for the length of the test set
 arima_preds = arima_fit.forecast(steps=len(test))
 
+# Calculate Mean Squared Error between actual and predicted churn rates
 arima_mse = mean_squared_error(test, arima_preds)
+
+# Calculate Root Mean Squared Error for interpretability
 arima_rmse = np.sqrt(arima_mse)
+
+# Calculate R² score to evaluate how well the model predicts churn variation
 arima_r2 = r2_score(test, arima_preds)
 
 #prediction plot and comparison between ARIMA and LSTM Model
@@ -201,10 +290,12 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-# Model Performance Metrics
-print("\nARIMA:")
-print(f"MSE: {round(arima_mse, 5)}, RMSE: {round(arima_rmse, 3)}, R2: {round(arima_r2, 3)}")
+# Model Comparision ARIMA Vs LSTM Performance Metrics
+results = [
+    ["ARIMA", round(arima_mse, 5), round(arima_rmse, 3), round(arima_r2, 3), "N/A"],
+    ["LSTM", round(lstm_mse, 5), round(lstm_rmse, 3), round(lstm_r2, 3), round(lstm_accuracy, 3)]
+]
 
-print("\nLSTM:")
-print(f"MSE: {round(lstm_mse, 5)}, RMSE: {round(lstm_rmse, 3)}, R2: {round(lstm_r2, 3)}, Accuracy: {round(lstm_accuracy, 3)}")
+headers = ["Model", "MSE", "RMSE", "R² Score", "Accuracy"]
 
+print(tabulate(results, headers=headers, tablefmt="pretty")).
